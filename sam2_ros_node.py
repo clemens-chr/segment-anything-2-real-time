@@ -86,7 +86,7 @@ class SAM2RosNode:
         first_pil_image = rgb_to_pil(first_rgb_image)
 
         # Predict the bounding box of the object to get a prompt
-        PROMPT_METHOD: Literal["mesh", "text", "hardcoded"] = "mesh"
+        PROMPT_METHOD: Literal["mesh", "text", "hardcoded"] = "text"  # CHANGE
         if PROMPT_METHOD == "mesh":
             MESH_FILEPATH = Path(
                 # "/juno/u/oliviayl/repos/cross_embodiment/FoundationPose/kiri_meshes/blueblock/3DModel.obj"
@@ -100,6 +100,12 @@ class SAM2RosNode:
                 image=first_pil_image,
                 mesh_filepath=MESH_FILEPATH,
             )
+            assert bboxes.shape == (1, 4), f"{bboxes.shape}"
+            self.prompts = {
+                "points": None,
+                "labels": None,
+                "box": bboxes[0],
+            }
         elif PROMPT_METHOD == "text":
             TEXT_PROMPT = "red cup"
             rospy.loginfo(f"Using text prompt for prompt: {TEXT_PROMPT}")
@@ -109,21 +115,15 @@ class SAM2RosNode:
                 grounding_model="gdino",
                 gdino_1_5_api_token=None,
             )
+            assert bboxes.shape == (1, 4), f"{bboxes.shape}"
+            self.prompts = {
+                "points": None,
+                "labels": None,
+                "box": bboxes[0],
+            }
         elif PROMPT_METHOD == "hardcoded":
             rospy.loginfo("Using hardcoded prompt")
-
-        points = np.stack(
-            [bboxes[:, 0] + bboxes[:, 2] / 2, bboxes[:, 1] + bboxes[:, 3] / 2],
-            axis=1,
-        ).astype(np.float32)
-        assert bboxes.shape == (1, 4), f"{bboxes.shape}"
-        assert points.shape == (1, 2), f"{points.shape}"
-
-        self.prompts = {
-            "points": None,
-            "labels": None,
-            "box": bboxes[0],
-        }
+            self.prompts = self.sam2_model.get_hardcoded_prompt()
 
         # NOTE: points are directly associated with labels
         # points and labels both None or of shape (N, 2) and (N,)
