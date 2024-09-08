@@ -2,11 +2,10 @@ import os
 
 # if using Apple MPS, fall back to CPU for unsupported ops
 os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
+
+import matplotlib.pyplot as plt
 import numpy as np
 import torch
-import matplotlib.pyplot as plt
-from PIL import Image
-import cv2
 
 from sam2.build_sam import build_sam2_camera_predictor
 
@@ -17,15 +16,6 @@ class SAM2Model:
     def __init__(self):
         self.checkpoint = "checkpoints/sam2_hiera_large.pt"
         self.model_cfg = "sam2_hiera_l.yaml"
-        device = torch.device("cuda")
-        self.predictor = build_sam2_camera_predictor(
-            self.model_cfg, self.checkpoint, device=device
-        )
-        self.output_dir = "test_outputs"
-
-    def predict(self, image, prompts=None, first=True, viz=False):
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        mask_img = np.zeros((image.shape[0], image.shape[1], 3), dtype=np.uint8)
 
         # select the device for computation
         if torch.cuda.is_available():
@@ -50,63 +40,45 @@ class SAM2Model:
                 "See e.g. https://github.com/pytorch/pytorch/issues/84936 for a discussion."
             )
 
+        self.predictor = build_sam2_camera_predictor(
+            self.model_cfg, self.checkpoint, device=device
+        )
+
+    def predict(self, rgb_image, prompts=None, first=True) -> np.ndarray:
+        # Make sure this is a np array of shape (H, W, 3) with RGB order of type np.uint8
+        height, width, channels = rgb_image.shape
+        assert channels == 3, f"Expected 3 channels, got {channels}"
+        assert rgb_image.dtype == np.uint8, f"Expected np.uint8, got {rgb_image.dtype}"
+
+        mask_img = np.zeros((height, width, 3), dtype=np.uint8)
         with torch.inference_mode(), torch.autocast("cuda", dtype=torch.bfloat16):
-            width, height = image.shape[:2][::-1]
             if first:
-                self.predictor.load_first_frame(image)
+                self.predictor.load_first_frame(rgb_image)
                 ann_frame_idx = 0  # the frame index we interact with
                 ann_obj_id = 1  # give a unique id to each object we interact with (it can be any integers)
 
-                if prompts == None:
-                    prompts = self.generate_prompts()
-                _, out_obj_ids, out_mask_logits = self.predictor.add_new_prompt(
-                    # inference_state=inference_state,
+                assert (
+                    prompts is not None
+                ), "prompts must be provided for the first frame"
+
+                _, _, out_mask_logits = self.predictor.add_new_prompt(
                     frame_idx=ann_frame_idx,
                     obj_id=ann_obj_id,
-                    # points=prompts['points'],
-                    # labels=prompts["labels"],
+                    points=prompts["points"],
+                    labels=prompts["labels"],
                     bbox=prompts["box"],
                 )
 
-                if viz:  # show the prompt on the first frame
-                    plt.figure(figsize=(9, 6))
-                    plt.title(f"frame {ann_frame_idx}")
-                    # plt.imshow(Image.open(os.path.join(self.output_dir, frame_names[ann_frame_idx])))
-
-                    self.show_points(points, labels, plt.gca())
-                    self.show_mask(
-                        (out_mask_logits[0] > 0.0).cpu().numpy(),
-                        plt.gca(),
-                        obj_id=out_obj_ids[0],
-                    )
-
-                out_mask_logits = out_mask_logits.squeeze(dim=0).squeeze(dim=0)
-                out_mask_logits = out_mask_logits.cpu().numpy()
-                mask_img[out_mask_logits > 0] = [255, 255, 255]  # object is in white
-
             else:
-                out_obj_ids, out_mask_logits = self.predictor.track(image)
-                out_mask_logits = out_mask_logits.squeeze(dim=0).squeeze(dim=0)
-                # print(f"out_mask_logits.shape = {out_mask_logits.shape}")
-                # all_mask = np.zeros((height, width, 3), dtype=np.uint8)
-                # breakpoint()
-                # for i in range(len(out_obj_ids)):
-                #     out_mask = (out_mask_logits > 0.0).cpu().numpy().astype(np.uint8) * 255
-                #     all_mask = cv2.bitwise_or(all_mask, out_mask)
-                # mask_img = all_mask
-                out_mask_logits = out_mask_logits.squeeze(dim=0).squeeze(dim=0)
-                out_mask_logits = out_mask_logits.cpu().numpy()
-                mask_img[out_mask_logits > 0] = [255, 255, 255]  # object is in white
+                _, out_mask_logits = self.predictor.track(rgb_image)
 
-            # if not os.path.exists(os.path.join(image_dir, 'masks')):
-            #     os.makedirs(os.path.join(image_dir, 'masks'))
-            # cv2.imwrite(os.path.join(image_dir, 'masks', f), mask_img)
+            out_mask_logits = out_mask_logits.squeeze(dim=0).squeeze(dim=0)
+            out_mask_logits = out_mask_logits.cpu().numpy()
+            mask_img[out_mask_logits > 0] = [255, 255, 255]  # object is in white
 
             return mask_img
 
-    def generate_prompts(self):
-        prompts = {"points": [], "labels": [], "box": []}
-
+    def get_hardcoded_prompt(self):
         # Let's add a positive click at (x, y) = (210, 350) to get started
         points = np.array([[480, 440]], dtype=np.float32)
         # for labels, `1` means positive click and `0` means negative click
@@ -119,6 +91,25 @@ class SAM2Model:
             "labels": labels,
             "box": box,
         }
+
+    def visualize(self, rgb_image, prompts, out_mask_logits):
+        fig, axes = plt.subplots(2, 1, figsize=(10, 10))
+        axes = axes.flatten()
+
+        # Image
+        axes[0].imshow(rgb_image)
+        self.show_points(prompts["points"], prompts["labels"], axes[0])
+        self.show_box(prompts["box"], axes[0])
+        axes[0].set_title("Input Image")
+
+        # Mask
+        self.show_mask(
+            (out_mask_logits[0] > 0.0),
+            axes[1],
+        )
+        self.show_points(prompts["points"], prompts["labels"], axes[1])
+        self.show_box(prompts["box"], axes[1])
+        axes[1].set_title("Predicted Mask")
 
     # Visualization Utils
     def show_mask(self, mask, ax, obj_id=None, random_color=False):
@@ -133,6 +124,9 @@ class SAM2Model:
         ax.imshow(mask_image)
 
     def show_points(self, coords, labels, ax, marker_size=200):
+        if coords is None:
+            return
+
         pos_points = coords[labels == 1]
         neg_points = coords[labels == 0]
         ax.scatter(
@@ -155,17 +149,17 @@ class SAM2Model:
         )
 
     def show_box(self, box, ax):
-        x0, y0 = box[0], box[1]
-        w, h = box[2] - box[0], box[3] - box[1]
+        if box is None:
+            return
+
+        assert box.shape == (4,)
+        x_min, y_min, x_max, y_max = box
+        x0 = (x_min + x_max) / 2
+        y0 = (y_min + y_max) / 2
+        w = x_max - x_min
+        h = y_max - y_min
         ax.add_patch(
             plt.Rectangle(
                 (x0, y0), w, h, edgecolor="green", facecolor=(0, 0, 0, 0), lw=2
             )
         )
-
-    def visualize_first_frame(self, output_dir):
-        # take a look the first video frame
-        frame_idx = 0
-        plt.figure(figsize=(9, 6))
-        plt.title(f"frame {frame_idx}")
-        plt.imshow(Image.open(os.path.join(output_dir, frame_names[frame_idx])))
