@@ -62,6 +62,9 @@ class SAM2RosNode:
             self.mask_with_prompt_pub_topic, ROSImage, queue_size=QUEUE_SIZE
         )
 
+        # Rate
+        RATE_HZ = 1
+        self.rate = rospy.Rate(RATE_HZ)
         rospy.loginfo("SAM2 ROS Node initialized and waiting for images...")
 
     def image_callback(self, data):
@@ -144,14 +147,16 @@ class SAM2RosNode:
             first=True,
             prompts=self.prompts,
         )
-        self.sam2_model.visualize(
-            rgb_image=first_rgb_image, prompts=self.prompts, out_mask_logits=mask
-        )
+        # self.sam2_model.visualize(
+        #     rgb_image=first_rgb_image, prompts=self.prompts, out_mask_logits=mask
+        # )
 
         ##############################
         # Track
         ##############################
         while not rospy.is_shutdown():
+            start_time = rospy.Time.now()
+
             new_rgb_image = self.rgb_image.copy()
 
             mask = self.sam2_model.predict(
@@ -198,6 +203,12 @@ class SAM2RosNode:
                 )
                 mask_with_prompt_msg.header = Header(stamp=rospy.Time.now())
                 self.mask_with_prompt_pub.publish(mask_with_prompt_msg)
+            done_time = rospy.Time.now()
+            self.rate.sleep()
+            after_sleep_time = rospy.Time.now()
+            rospy.loginfo(
+                f"Max rate: {np.round(1./(done_time - start_time).to_sec())} Hz, Actual rate with sleep: {(after_sleep_time - done_time).to_sec()} {np.round(1./(after_sleep_time - start_time).to_sec())} Hz"
+            )
 
 
 if __name__ == "__main__":
