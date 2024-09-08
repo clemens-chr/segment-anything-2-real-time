@@ -207,7 +207,7 @@ class SAM2RosNode:
             self.rate.sleep()
             after_sleep_time = rospy.Time.now()
             rospy.loginfo(
-                f"Max rate: {np.round(1./(done_time - start_time).to_sec())} Hz, Actual rate with sleep: {(after_sleep_time - done_time).to_sec()} {np.round(1./(after_sleep_time - start_time).to_sec())} Hz"
+                f"Max rate: {np.round(1./(done_time - start_time).to_sec())} Hz ({np.round((done_time - start_time).to_sec() * 1000)} ms), Actual rate with sleep: {np.round(1./(after_sleep_time - start_time).to_sec())} Hz"
             )
 
 
