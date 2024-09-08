@@ -1,4 +1,5 @@
 import os
+
 # if using Apple MPS, fall back to CPU for unsupported ops
 os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
 import numpy as np
@@ -11,16 +12,17 @@ from sam2.build_sam import build_sam2_camera_predictor
 
 # Adapted from: github.com/Gy920/segment-anything-2-real-time/blob/main/demo/demo.py
 
-class SAM2Model():
 
+class SAM2Model:
     def __init__(self):
         self.checkpoint = "checkpoints/sam2_hiera_large.pt"
         self.model_cfg = "sam2_hiera_l.yaml"
         device = torch.device("cuda")
-        self.predictor = build_sam2_camera_predictor(self.model_cfg, self.checkpoint, device=device)
-        self.img_dir = "test_outputs"
+        self.predictor = build_sam2_camera_predictor(
+            self.model_cfg, self.checkpoint, device=device
+        )
+        self.output_dir = "test_outputs"
 
-    
     def predict(self, image, prompts=None, first=True, viz=False):
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         mask_img = np.zeros((image.shape[0], image.shape[1], 3), dtype=np.uint8)
@@ -62,21 +64,25 @@ class SAM2Model():
                     frame_idx=ann_frame_idx,
                     obj_id=ann_obj_id,
                     # points=prompts['points'],
-                    labels=prompts['labels'],
-                    bbox=prompts['box'],
+                    # labels=prompts["labels"],
+                    bbox=prompts["box"],
                 )
 
-                if viz: # show the prompt on the first frame
+                if viz:  # show the prompt on the first frame
                     plt.figure(figsize=(9, 6))
                     plt.title(f"frame {ann_frame_idx}")
-                    # plt.imshow(Image.open(os.path.join(self.img_dir, frame_names[ann_frame_idx])))
-                    
+                    # plt.imshow(Image.open(os.path.join(self.output_dir, frame_names[ann_frame_idx])))
+
                     self.show_points(points, labels, plt.gca())
-                    self.show_mask((out_mask_logits[0] > 0.0).cpu().numpy(), plt.gca(), obj_id=out_obj_ids[0])
-                
+                    self.show_mask(
+                        (out_mask_logits[0] > 0.0).cpu().numpy(),
+                        plt.gca(),
+                        obj_id=out_obj_ids[0],
+                    )
+
                 out_mask_logits = out_mask_logits.squeeze(dim=0).squeeze(dim=0)
                 out_mask_logits = out_mask_logits.cpu().numpy()
-                mask_img[out_mask_logits > 0] = [255, 255, 255] # object is in white
+                mask_img[out_mask_logits > 0] = [255, 255, 255]  # object is in white
 
             else:
                 out_obj_ids, out_mask_logits = self.predictor.track(image)
@@ -90,17 +96,16 @@ class SAM2Model():
                 # mask_img = all_mask
                 out_mask_logits = out_mask_logits.squeeze(dim=0).squeeze(dim=0)
                 out_mask_logits = out_mask_logits.cpu().numpy()
-                mask_img[out_mask_logits > 0] = [255, 255, 255] # object is in white
-           
+                mask_img[out_mask_logits > 0] = [255, 255, 255]  # object is in white
+
             # if not os.path.exists(os.path.join(image_dir, 'masks')):
             #     os.makedirs(os.path.join(image_dir, 'masks'))
             # cv2.imwrite(os.path.join(image_dir, 'masks', f), mask_img)
 
             return mask_img
-    
 
     def generate_prompts(self):
-        prompts = {'points': [], 'labels': [], 'box': []}
+        prompts = {"points": [], "labels": [], "box": []}
 
         # Let's add a positive click at (x, y) = (210, 350) to get started
         points = np.array([[480, 440]], dtype=np.float32)
@@ -110,11 +115,10 @@ class SAM2Model():
         box = np.array([322, 415, 387, 480], dtype=np.float32)
 
         return {
-            'points': points,
-            'labels': labels,
-            'box': box,
+            "points": points,
+            "labels": labels,
+            "box": box,
         }
-        
 
     # Visualization Utils
     def show_mask(self, mask, ax, obj_id=None, random_color=False):
@@ -128,24 +132,40 @@ class SAM2Model():
         mask_image = mask.reshape(h, w, 1) * color.reshape(1, 1, -1)
         ax.imshow(mask_image)
 
-
     def show_points(self, coords, labels, ax, marker_size=200):
-        pos_points = coords[labels==1]
-        neg_points = coords[labels==0]
-        ax.scatter(pos_points[:, 0], pos_points[:, 1], color='green', marker='*', s=marker_size, edgecolor='white', linewidth=1.25)
-        ax.scatter(neg_points[:, 0], neg_points[:, 1], color='red', marker='*', s=marker_size, edgecolor='white', linewidth=1.25)
-
+        pos_points = coords[labels == 1]
+        neg_points = coords[labels == 0]
+        ax.scatter(
+            pos_points[:, 0],
+            pos_points[:, 1],
+            color="green",
+            marker="*",
+            s=marker_size,
+            edgecolor="white",
+            linewidth=1.25,
+        )
+        ax.scatter(
+            neg_points[:, 0],
+            neg_points[:, 1],
+            color="red",
+            marker="*",
+            s=marker_size,
+            edgecolor="white",
+            linewidth=1.25,
+        )
 
     def show_box(self, box, ax):
         x0, y0 = box[0], box[1]
         w, h = box[2] - box[0], box[3] - box[1]
-        ax.add_patch(plt.Rectangle((x0, y0), w, h, edgecolor='green', facecolor=(0, 0, 0, 0), lw=2))
+        ax.add_patch(
+            plt.Rectangle(
+                (x0, y0), w, h, edgecolor="green", facecolor=(0, 0, 0, 0), lw=2
+            )
+        )
 
-    
-    def visualize_first_frame(self, img_dir):
+    def visualize_first_frame(self, output_dir):
         # take a look the first video frame
         frame_idx = 0
         plt.figure(figsize=(9, 6))
         plt.title(f"frame {frame_idx}")
-        plt.imshow(Image.open(os.path.join(img_dir, frame_names[frame_idx])))
-
+        plt.imshow(Image.open(os.path.join(output_dir, frame_names[frame_idx])))
