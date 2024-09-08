@@ -201,11 +201,14 @@ class SAM2CameraPredictor(SAM2Base):
         assert (
             bbox is not None or points is not None
         ), "Either bbox or points is required"
-
         if bbox is not None:
             if not isinstance(bbox, torch.Tensor):
-                points = torch.tensor(bbox, dtype=torch.float32)
-            labels = torch.tensor([2, 3], dtype=torch.int32)
+                bbox = torch.tensor(bbox, dtype=torch.float32)
+            bbox_coords = bbox.reshape(-1, 2, 2)
+            bbox_labels = torch.tensor([2, 3], dtype=torch.int32)
+            bbox_labels = bbox_labels.reshape(1, 2).repeat_interleave(bbox_coords.shape[0], dim=0)
+            points = bbox_coords
+            labels = bbox_labels
         else:
             if not isinstance(points, torch.Tensor):
                 points = torch.tensor(points, dtype=torch.float32)
