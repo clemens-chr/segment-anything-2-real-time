@@ -83,7 +83,26 @@ vim ~/api_keys/tml_openai_key.txt
 
 Then, run with:
 ```
+# Set ROS variables if running across PCs
+export ROS_MASTER_URI=http://bohg-franka.stanford.edu:11311  # Master machine
+export ROS_HOSTNAME=bohg-ws-19.stanford.edu  # This machine
+
 python sam2_ros_node.py
+```
+
+If things are not working, make sure that you can do things like:
+```
+roscore  # ROS works
+```
+
+```
+rostopic list  # See expected topics
+```
+
+For some reason, I have had to do this sometimes:
+```
+mamba deactivate
+mamba activate sam2_ros_env
 ```
 
 # SUCCESSES AND FAILURES
