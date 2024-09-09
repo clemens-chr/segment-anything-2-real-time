@@ -78,7 +78,7 @@ python sam2_ros_node.py
 
 ## Florence
 
-Was better than Grounding DINO for things like "primary object", but not as reliable in general
+Was better than Grounding DINO for things like "primary object", but not as reliable in general. When given a good prompt, Grounding DINO seemed to be better.
 
 <div align="center">
   <img src="https://github.com/user-attachments/assets/16be45ba-1360-411e-b81b-993cd4354066" width="400" style="display: inline-block;" />
@@ -99,6 +99,46 @@ Was better than Grounding DINO for things like "primary object", but not as reli
   <img src="https://github.com/user-attachments/assets/b12772f2-d715-4052-a319-c297a5b6f867" width="400" style="display: inline-block;" />
   <img src="https://github.com/user-attachments/assets/94d97b90-034b-43cf-9e51-78a0e08f3211" width="400" style="display: inline-block;" />
 </div>
+
+## Grounding DINO
+
+Grounding DINO worked well with a good text prompt, but very poorly otherwise. This motivates the use of ChatGPT to caption the mesh image (automated pipeline without human).
+
+<div align="center">
+  <img src="https://github.com/user-attachments/assets/92087fba-02b8-4d6f-8807-0bee61971762" width="400" style="display: inline-block;" />
+  <img src="https://github.com/user-attachments/assets/3e7ee901-92ca-45b8-abf9-0f1a7969498f" width="400" style="display: inline-block;" />
+</div>
+
+<div align="center">
+  <img src="https://github.com/user-attachments/assets/61c3cff7-b6af-4128-aa71-2d538d553a3f" width="400" style="display: inline-block;" />
+  <img src="https://github.com/user-attachments/assets/a8e81c7a-e155-4fba-bb32-86aa9599f380" width="400" style="display: inline-block;" />
+</div>
+
+<div align="center">
+  <img src="https://github.com/user-attachments/assets/30f4cd1e-e87a-422d-9f66-48bdcbac519c" width="400" style="display: inline-block;" />
+  <img src="https://github.com/user-attachments/assets/a53757cd-60e0-4370-a055-1ca5c296a11d" width="400" style="display: inline-block;" />
+</div>
+
+<div align="center">
+  <img src="https://github.com/user-attachments/assets/7eb15a18-04ec-4ebf-88ce-973216777ad7" width="400" style="display: inline-block;" />
+  <img src="https://github.com/user-attachments/assets/d6c7dd79-8532-4426-8693-822d86ad75d1" width="400" style="display: inline-block;" />
+</div>
+
+## T-REX/DINO-V/OWL-VIT
+
+T-REX and DINO-V and OWL-VIT can be conditioned on an image, but they were not reliable enough for me.
+
+<div align="center">
+  <img src="https://github.com/user-attachments/assets/8f02aac0-2293-45cb-bb0d-b4e8d50af981" width="400" style="display: inline-block;" />
+</div>
+
+https://huggingface.co/spaces/johko/image-guided-owlvit
+<div align="center">
+  <img src="https://github.com/user-attachments/assets/e4d92f08-8433-433a-a7d1-b0b4740e36fa" width="400" style="display: inline-block;" />
+  <img src="https://github.com/user-attachments/assets/805b49df-508f-4cda-a9e3-c21450891d4b" width="400" style="display: inline-block;" />
+</div>
+
+
 
 # ORIGINAL DOCUMENTATION
 
