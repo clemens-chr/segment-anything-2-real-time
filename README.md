@@ -74,6 +74,32 @@ Then, run with:
 python sam2_ros_node.py
 ```
 
+# SUCCESSES AND FAILURES
+
+## Florence
+
+Was better than Grounding DINO for things like "primary object", but not as reliable in general
+
+<div align="center">
+  <img src="https://github.com/user-attachments/assets/16be45ba-1360-411e-b81b-993cd4354066" width="400" style="display: inline-block;" />
+  <img src="https://github.com/user-attachments/assets/8f9d1c0f-2b36-4129-9b0a-3841d67945bc" width="400" style="display: inline-block;" />
+</div>
+
+<div align="center">
+  <img src="https://github.com/user-attachments/assets/68997ed1-9221-4aeb-aca7-0af4b044229d" width="400" style="display: inline-block;" />
+  <img src="https://github.com/user-attachments/assets/ca248dd5-54cc-45e4-8bba-eba2fb29ec63" width="400" style="display: inline-block;" />
+</div>
+
+<div align="center">
+  <img src="https://github.com/user-attachments/assets/c6653ecf-80de-4e4e-8c6a-9f3b19a0b4c1" width="400" style="display: inline-block;" />
+  <img src="https://github.com/user-attachments/assets/42dfab34-4f3a-4593-8630-56209cdf7b91" width="400" style="display: inline-block;" />
+</div>
+
+<div align="center">
+  <img src="https://github.com/user-attachments/assets/b12772f2-d715-4052-a319-c297a5b6f867" width="400" style="display: inline-block;" />
+  <img src="https://github.com/user-attachments/assets/94d97b90-034b-43cf-9e51-78a0e08f3211" width="400" style="display: inline-block;" />
+</div>
+
 # ORIGINAL DOCUMENTATION
 
 ## News
