@@ -3,6 +3,18 @@ Run Segment Anything Model 2 on a **live video stream**
 
 # TYLER DOCUMENTATION (September 8, 2024)
 
+## EXAMPLE VIDEO
+
+This is a live example that uses 2 components:
+
+1. RealSense camera: `roslaunch realsense2_camera rs_camera.launch align_depth:=true`
+2. Real-Time SAM2 with smart prompting: https://github.com/tylerlum/segment-anything-2-real-time
+
+[GPT_Grounding_SAM2_Working_Screencast from 09-08-2024 01:33:52 AM.webm](https://github.com/user-attachments/assets/67d20173-a963-4659-a985-5d2843ba7e0a)
+
+[SAM2_Robust_Screencast from 09-08-2024 07:07:12 PM.webm](https://github.com/user-attachments/assets/95849300-c1b2-47e9-8ca9-8344fb7e2e46)
+
+
 ## CHANGES
 Difference between the default SAM2 (https://github.com/facebookresearch/segment-anything-2) and real-time SAM2 (https://github.com/Gy920/segment-anything-2-real-time):
 
