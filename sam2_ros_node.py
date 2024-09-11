@@ -208,8 +208,7 @@ class SAM2RosNode:
                         first=True,
                         prompts=self.prompts,
                     )
-
-                    self.is_mask_initialized = False
+                    self.is_mask_initialized = True
             else:
                 ##############################
                 # Track
@@ -229,8 +228,8 @@ class SAM2RosNode:
 
                 # Check if mask is terrible
                 num_mask_pixels = (mask_rgb[..., 0] > 0).sum()
-                MIN_MASK_PIXELS = 10
-                if num_mask_pixels < MIN_MASK_PIXELS:
+                MIN_MASK_PIXELS = 0
+                if num_mask_pixels <= MIN_MASK_PIXELS:
                     rospy.logwarn(
                         f"Mask is terrible, num_mask_pixels={num_mask_pixels}"
                     )
