@@ -3,10 +3,10 @@ from pathlib import Path
 from typing import Tuple
 
 import numpy as np
-import sam2
 import tyro
 from PIL import Image
 
+import sam2
 from description_to_bbox import generate_bbox, generate_mask, visualize_results
 from image_to_description import (
     generate_image_description,
@@ -15,9 +15,27 @@ from image_to_description import (
 # Import necessary functions
 from mesh_to_image import generate_mesh_image
 
-# ========================
-# mesh_to_bbox function
-# ========================
+
+def mesh_to_description(
+    mesh_filepath: Path,
+) -> Tuple[Image.Image, str]:
+    # Step 1: Generate image from mesh
+    mesh_image = generate_mesh_image(
+        mesh_filepath, image_width=300, image_height=300, radius=0.3
+    )
+
+    # Step 2: Generate a description of the image using OpenAI API
+    description, _ = generate_image_description(
+        image=mesh_image,
+        openai_api_key=None,
+        model="gpt-4o-mini",
+        max_tokens=100,
+    )
+    # HACK: Add "on table" at the end of the description to improve grounding
+    description += " on table"
+    description = description.lower()
+    print(f"HACK: Added 'on table' to description: {description}")
+    return mesh_image, description
 
 
 def mesh_to_bbox(
@@ -38,25 +56,9 @@ def mesh_to_bbox(
     Returns:
         Tuple: (image, description, bboxes, confidences, class_names)
     """
-    # Step 1: Generate image from mesh
-    mesh_image = generate_mesh_image(
-        mesh_filepath, image_width=300, image_height=300, radius=0.3
-    )
-
-    # Step 2: Generate a description of the image using OpenAI API
-    description, _ = generate_image_description(
-        image=mesh_image,
-        openai_api_key=None,
-        model="gpt-4o-mini",
-        max_tokens=100,
-    )
+    mesh_image, description = mesh_to_description(mesh_filepath)
 
     # Step 3: Generate bounding boxes using the description as the text prompt
-    # HACK: Add "on table" at the end of the description to improve grounding
-    description += " on table"
-    description = description.lower()
-    print(f"HACK: Added 'on table' to description: {description}")
-
     bboxes, confidences, class_names = generate_bbox(
         image=image,
         text_prompt=description,

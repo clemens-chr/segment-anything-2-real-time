@@ -78,7 +78,7 @@ class SAM2Model:
 
             return mask_img
 
-    def get_hardcoded_prompt(self):
+    def get_hardcoded_prompts(self):
         # Let's add a positive click at (x, y)
         points = np.array([[480, 440]], dtype=np.float32)
         # for labels, `1` means positive click and `0` means negative click
@@ -87,7 +87,9 @@ class SAM2Model:
         # Need (N, 2) and (N,) shapes
         # Or both None
         if points is not None:
-            assert points.shape[0] == point_labels.shape[0], f"{points.shape}, {point_labels.shape}"
+            assert (
+                points.shape[0] == point_labels.shape[0]
+            ), f"{points.shape}, {point_labels.shape}"
 
         # Let's add a box at (x_min, y_min, x_max, y_max)
         box = np.array([322, 415, 387, 480], dtype=np.float32)
