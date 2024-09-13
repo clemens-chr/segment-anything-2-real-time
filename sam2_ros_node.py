@@ -131,15 +131,21 @@ class SAM2RosNode:
         rospy.loginfo(f"Using prompt method: {PROMPT_METHOD}")
 
         if PROMPT_METHOD == "mesh":
-            MESH_FILEPATH = Path(
+            DEFAULT_MESH_FILEPATH = Path(
                 # "/juno/u/oliviayl/repos/cross_embodiment/FoundationPose/kiri_meshes/blueblock/3DModel.obj"
                 # "/juno/u/oliviayl/repos/cross_embodiment/FoundationPose/kiri_meshes/snackbox/3DModel.obj"
                 # "/juno/u/oliviayl/repos/cross_embodiment/FoundationPose/kiri_meshes/woodblock/3DModel.obj"
                 "/juno/u/oliviayl/repos/cross_embodiment/FoundationPose/kiri_meshes/cup_ycbv/textured.obj"
             )
-            rospy.loginfo(f"Using mesh for prompt: {MESH_FILEPATH}")
+
+            mesh_file = rospy.get_param("/mesh_file", None)
+            if mesh_file is not None:
+                mesh_file = str(DEFAULT_MESH_FILEPATH)
+                rospy.logwarn(f"Using default mesh file: {mesh_file}")
+            rospy.loginfo(f"Using mesh for prompt: {mesh_file}")
+
             prompts = self.generate_sam_prompts_from_mesh(
-                rgb_image=rgb_image, mesh_filepath=MESH_FILEPATH
+                rgb_image=rgb_image, mesh_filepath=Path(mesh_file)
             )
         elif PROMPT_METHOD == "text":
             TEXT_PROMPT = "red cup"
