@@ -43,7 +43,8 @@ class SAM2RosNode:
         self.bridge = CvBridge()
 
         # Subscribe to the camera topic
-        self.image_sub_topic = "/camera/color/image_raw"
+        # self.image_sub_topic = "/camera/color/image_raw"
+        self.image_sub_topic = "/zed/zed_node/rgb/image_rect_color"
         self.image_sub = rospy.Subscriber(
             self.image_sub_topic, ROSImage, self.image_callback
         )
@@ -131,15 +132,14 @@ class SAM2RosNode:
         rospy.loginfo(f"Using prompt method: {PROMPT_METHOD}")
 
         if PROMPT_METHOD == "mesh":
-            DEFAULT_MESH_FILEPATH = Path(
-                # "/juno/u/oliviayl/repos/cross_embodiment/FoundationPose/kiri_meshes/blueblock/3DModel.obj"
-                # "/juno/u/oliviayl/repos/cross_embodiment/FoundationPose/kiri_meshes/snackbox/3DModel.obj"
-                # "/juno/u/oliviayl/repos/cross_embodiment/FoundationPose/kiri_meshes/woodblock/3DModel.obj"
-                "/juno/u/oliviayl/repos/cross_embodiment/FoundationPose/kiri_meshes/cup_ycbv/textured.obj"
-            )
-
             mesh_file = rospy.get_param("/mesh_file", None)
             if mesh_file is not None:
+                DEFAULT_MESH_FILEPATH = Path(
+                    # "/juno/u/oliviayl/repos/cross_embodiment/FoundationPose/kiri_meshes/blueblock/3DModel.obj"
+                    # "/juno/u/oliviayl/repos/cross_embodiment/FoundationPose/kiri_meshes/snackbox/3DModel.obj"
+                    # "/juno/u/oliviayl/repos/cross_embodiment/FoundationPose/kiri_meshes/woodblock/3DModel.obj"
+                    "/juno/u/oliviayl/repos/cross_embodiment/FoundationPose/kiri_meshes/cup_ycbv/textured.obj"
+                )
                 mesh_file = str(DEFAULT_MESH_FILEPATH)
                 rospy.logwarn(f"Using default mesh file: {mesh_file}")
             rospy.loginfo(f"Using mesh for prompt: {mesh_file}")
