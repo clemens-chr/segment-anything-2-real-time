@@ -133,7 +133,7 @@ class SAM2RosNode:
 
         if PROMPT_METHOD == "mesh":
             mesh_file = rospy.get_param("/mesh_file", None)
-            if mesh_file is not None:
+            if mesh_file is None:
                 DEFAULT_MESH_FILEPATH = Path(
                     # "/juno/u/oliviayl/repos/cross_embodiment/FoundationPose/kiri_meshes/blueblock/3DModel.obj"
                     # "/juno/u/oliviayl/repos/cross_embodiment/FoundationPose/kiri_meshes/snackbox/3DModel.obj"
