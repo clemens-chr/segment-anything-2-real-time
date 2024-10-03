@@ -75,6 +75,9 @@ pip install supervision pycocotools yapf timm
 pip install dds-cloudapi-sdk
 pip install flash_attn einops
 
+# May need to pip install a few other things, add to this list as needed
+pip install tyro
+
 # Can also get Grounding DINO 1.5 API token if desired, refer to https://github.com/IDEA-Research/Grounded-SAM-2 for details
 # I put my api tokens in
 vim ~/api_keys/grounded_sam_2_key.txt
