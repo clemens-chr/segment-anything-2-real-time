@@ -148,10 +148,17 @@ class SAM2RosNode:
                 rgb_image=rgb_image, mesh_filepath=Path(mesh_file)
             )
         elif PROMPT_METHOD == "text":
-            TEXT_PROMPT = "red cup"
-            rospy.loginfo(f"Using hardcoded text prompt for prompt: {TEXT_PROMPT}")
+            text_prompt = rospy.get_param("/text_prompt", None)
+            if text_prompt is None:
+                DEFAULT_TEXT_PROMPT = "red cup"
+                # DEFAULT_TEXT_PROMPT = "red cracker box"
+
+                text_prompt = DEFAULT_TEXT_PROMPT
+                rospy.logwarn(f"Using default text prompt: {text_prompt}")
+
+            rospy.loginfo(f"Using text prompt for prompt: {text_prompt}")
             prompts = self.generate_sam_prompts_from_text(
-                rgb_image=rgb_image, text_prompt=TEXT_PROMPT
+                rgb_image=rgb_image, text_prompt=text_prompt
             )
         elif PROMPT_METHOD == "hardcoded":
             rospy.loginfo("Using hardcoded prompt")
