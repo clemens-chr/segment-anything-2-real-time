@@ -42,9 +42,21 @@ class SAM2RosNode:
         # Initialize the CvBridge to convert between ROS images and OpenCV images
         self.bridge = CvBridge()
 
+        # Check camera parameter
+        camera = rospy.get_param("/camera", None)
+        if camera is None:
+            DEFAULT_CAMERA = "zed"
+            rospy.logwarn(f"No /camera parameter found, using default camera {DEFAULT_CAMERA}")
+            camera = DEFAULT_CAMERA
+        rospy.loginfo(f"Using camera: {camera}")
+        if camera == "zed":
+            self.image_sub_topic = "/zed/zed_node/rgb/image_rect_color"
+        elif camera == "realsense":
+            self.image_sub_topic = "/camera/color/image_raw"
+        else:
+            raise ValueError(f"Unknown camera: {camera}")
+
         # Subscribe to the camera topic
-        # self.image_sub_topic = "/camera/color/image_raw"
-        self.image_sub_topic = "/zed/zed_node/rgb/image_rect_color"
         self.image_sub = rospy.Subscriber(
             self.image_sub_topic, ROSImage, self.image_callback
         )
