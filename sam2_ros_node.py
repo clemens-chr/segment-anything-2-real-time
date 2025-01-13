@@ -287,9 +287,15 @@ class SAM2RosNode:
                         int(self.prompts["box"][2]),
                         int(self.prompts["box"][3]),
                     )
-                    DRAW_BOX = False
+                    DRAW_BOX = True
+                    BOX_THICKNESS = 2
                     if DRAW_BOX:
-                        mask_rgb_with_prompt[y_min:y_max, x_min:x_max] = [255, 0, 0]
+                        # Draw horizontal lines
+                        mask_rgb_with_prompt[y_min:y_min+BOX_THICKNESS, x_min:x_max] = [255, 0, 0]  # Top
+                        mask_rgb_with_prompt[y_max-BOX_THICKNESS:y_max, x_min:x_max] = [255, 0, 0]  # Bottom
+                        # Draw vertical lines
+                        mask_rgb_with_prompt[y_min:y_max, x_min:x_min+BOX_THICKNESS] = [255, 0, 0]  # Left
+                        mask_rgb_with_prompt[y_min:y_max, x_max-BOX_THICKNESS:x_max] = [255, 0, 0]  # Right
                     else:
                         x_mean, y_mean = (
                             int((x_min + x_max) / 2),
