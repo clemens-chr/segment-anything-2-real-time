@@ -78,6 +78,10 @@ class SAM2RosNode:
             self.num_mask_pixels_pub_topic, Int32, queue_size=QUEUE_SIZE
         )
 
+        self.reset_sub = rospy.Subscriber(
+            "/sam2_reset", Int32, self.reset_callback, queue_size=1
+        )
+
         # Rate
         RATE_HZ = 1
         self.rate = rospy.Rate(RATE_HZ)
@@ -90,6 +94,13 @@ class SAM2RosNode:
         # Convert the ROS image message to a format OpenCV can work with
         self.rgb_image = self.bridge.imgmsg_to_cv2(data, "rgb8")
         rospy.logdebug(f"Image received from {self.image_sub_topic}")
+
+    def reset_callback(self, data):
+        if data.data > 0:
+            rospy.loginfo("Resetting the sam2 node")
+            self.is_mask_initialized = False
+        else:
+            rospy.loginfo("Received a reset message with data <= 0")
 
     def generate_sam_prompts_from_mesh(
         self, rgb_image: np.ndarray, mesh_filepath: Path
