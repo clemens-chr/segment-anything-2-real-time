@@ -5,13 +5,12 @@ Run Segment Anything Model 2 on a **live video stream**
 
 ## EXAMPLE VIDEO
 
-This is an example that demonstrates the robustness of the Segment Anything Model 2 (SAM2) model (very robust) and the FoundationPose model (not as robust)
+This is an example that demonstrates the robustness of the Segment Anything Model 2 (SAM2) model (very robust).
 
+This video shows SAM2 working at ~30Hz.
 
-This video shows SAM2 working at ~30Hz, showing very robust performance.
 [GPT_Grounding_SAM2_Working_Screencast from 09-08-2024 01:33:52 AM.webm](https://github.com/user-attachments/assets/67d20173-a963-4659-a985-5d2843ba7e0a)
 
-This video shows FoundationPose working at ~30Hz, showing less robust performance (SAM2 is working at 1Hz to evaluate FoundationPose and reset it if needed).
 [SAM2_Robust_Screencast from 09-08-2024 07:07:12 PM.webm](https://github.com/user-attachments/assets/95849300-c1b2-47e9-8ca9-8344fb7e2e46)
 
 ## INPUTS AND OUTPUTS
