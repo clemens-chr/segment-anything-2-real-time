@@ -5,15 +5,67 @@ Run Segment Anything Model 2 on a **live video stream**
 
 ## EXAMPLE VIDEO
 
-This is a live example that uses 2 components:
+This is an example that demonstrates the robustness of the Segment Anything Model 2 (SAM2) model (very robust) and the FoundationPose model (not as robust)
 
-1. RealSense camera: `roslaunch realsense2_camera rs_camera.launch align_depth:=true`
-2. Real-Time SAM2 with smart prompting: https://github.com/tylerlum/segment-anything-2-real-time
 
+This video shows SAM2 working at ~30Hz, showing very robust performance.
 [GPT_Grounding_SAM2_Working_Screencast from 09-08-2024 01:33:52 AM.webm](https://github.com/user-attachments/assets/67d20173-a963-4659-a985-5d2843ba7e0a)
 
+This video shows FoundationPose working at ~30Hz, showing less robust performance (SAM2 is working at 1Hz to evaluate FoundationPose and reset it if needed).
 [SAM2_Robust_Screencast from 09-08-2024 07:07:12 PM.webm](https://github.com/user-attachments/assets/95849300-c1b2-47e9-8ca9-8344fb7e2e46)
 
+## INPUTS AND OUTPUTS
+
+```mermaid
+flowchart LR
+    subgraph "Inputs"
+        A["&lt;image_topic&gt;"]
+        B["/sam2_reset"]
+    end
+
+    SAM2["sam2_ros_node"]
+
+    subgraph "Outputs"
+        C["/sam2_mask"]
+        D["/sam2_mask_with_prompt"]
+        E["/sam2_num_mask_pixels"]
+    end
+
+    A --> SAM2
+    B --> SAM2
+    SAM2 --> C
+    SAM2 --> D
+    SAM2 --> E
+```
+
+* `image_topic` is the topic of the RGB image
+
+* `sam2_reset` is a boolean trigger to reset the model. Concretely, if the object moves out of the frame entirely, SAM2 may start tracking the next most similar object. Even if the object returns, it will likely still track the wrong object. At this point, it should be reset with `rostopic pub /sam2_reset std_msgs/Int32 "data: 1"`
+
+* `sam2_mask` is the mask of the object
+
+* `sam2_mask_with_prompt` is the mask of the object with the bounding boxprompt overlaid
+
+* `sam2_num_mask_pixels` is the number of pixels in the mask. If the number of pixels in the mask is too low, the model will reset to look for the object again.
+
+You should set the following ROS parameters:
+```
+rosparam set /camera zed  # zed or realsense
+
+# Either /text_prompt to prompt the model with what object should be segmented
+# Or /mesh_file to prompt the model with a mesh of the object to be segmented
+rosparam set /text_prompt "red snackbox"
+rosparam set /mesh_file /path/to/mesh.obj  # This requires an OpenAI API key
+```
+
+This sets the image topic to use:
+
+```
+if camera == "zed":
+    self.image_sub_topic = "/zed/zed_node/rgb/image_rect_color"
+elif camera == "realsense":
+    self.image_sub_topic = "/camera/color/image_raw"
+```
 
 ## CHANGES
 Difference between the default SAM2 (https://github.com/facebookresearch/segment-anything-2) and real-time SAM2 (https://github.com/Gy920/segment-anything-2-real-time):
@@ -26,7 +78,7 @@ Difference between real-time SAM2 (https://github.com/Gy920/segment-anything-2-r
 
 * Addition of `sam2_ros_node.py`, which listens for RGB images and outputs a mask. It needs a prompt, which can come from a text prompt, a mesh => image => text prompt, or a hardcoded position
 
-* Addition of `sam2_model.py`, which is a nice wrapper around the `sam2_camera_predictor.py`. It is very robust, doesn't seem to need to re-start tracking extreme for extreme cases.
+* Addition of `sam2_model.py`, which is a nice wrapper around the `sam2_camera_predictor.py`. It is very robust, doesn't seem to need to re-start tracking except for extreme cases.
 
 * Addition of `mesh_to_image.py` to go from mesh to mesh image (pyvista), `image_to_description.py` to go from mesh image to text description (GPT-4o), `description_to_bbox.py` to go from text description to bounding box around that object in a new image (Grounding DINO), and `mesh_to_bbox.py` which puts these things together. All of these are runnable scripts you can try.
 
@@ -84,22 +136,45 @@ vim ~/api_keys/grounded_sam_2_key.txt
 vim ~/api_keys/tml_openai_key.txt 
 ```
 
-Then, run with:
+Useful ROS tools:
+```
+# ROS tools
+mamba install ros-noetic-rqt-image-view
+mamba install ros-noetic-rqt-plot
+```
+
+First run the camera with something like:
+
+```
+roslaunch realsense2_camera rs_camera.launch align_depth:=true
+roslaunch zed_wrapper zed.launch
+```
+
+Check you can see the topics:
+```
+rostopic list  # See expected topics
+```
+
+If you are running across PCs, set the following:
 ```
 # Set ROS variables if running across PCs
-export ROS_MASTER_URI=http://bohg-franka.stanford.edu:11311  # Master machine
-export ROS_HOSTNAME=bohg-ws-19.stanford.edu  # This machine
+export ROS_MASTER_URI=http://bohg-ws-5.stanford.edu:11311  # Master machine
+export ROS_HOSTNAME=$(hostname)  # This machine (e.g., bohg-ws-19.stanford.edu)
+```
 
+Run the ROS node:
+```
 python sam2_ros_node.py
 ```
 
-If things are not working, make sure that you can do things like:
+Sanity check that the camera is working by viewing the RGB images and the SAM2 mask and mask with prompt:
 ```
-roscore  # ROS works
+rqt_image_view &
 ```
 
+You can visualize debug signals /sam2_reset and /sam2_num_mask_pixels with:
 ```
-rostopic list  # See expected topics
+rqt_plot
 ```
 
 For some reason, I have had to do this sometimes:
