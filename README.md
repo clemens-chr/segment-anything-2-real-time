@@ -3,6 +3,8 @@ Run Segment Anything Model 2 on a **live video stream**
 
 # TYLER DOCUMENTATION (September 8, 2024)
 
+NOTE: The purpose of this documentation is NOT to be super precise and detailed, but rather to be a quick reference for how to run the code and how it works.
+
 ## EXAMPLE VIDEO
 
 This is an example that demonstrates the robustness of the Segment Anything Model 2 (SAM2) model (very robust).
