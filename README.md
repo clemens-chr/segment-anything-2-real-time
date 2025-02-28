@@ -143,6 +143,8 @@ mamba install ros-noetic-rqt-image-view
 mamba install ros-noetic-rqt-plot
 ```
 
+### Run
+
 First run the camera with something like:
 
 ```
