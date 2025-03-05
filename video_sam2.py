@@ -45,7 +45,8 @@ def main(
     # Create the SAM2 predictor
     from sam2.build_sam import build_sam2_video_predictor
 
-    sam2_checkpoint = "./checkpoints/sam2_hiera_large.pt"
+    sam2_checkpoint = Path(__file__).parent / "checkpoints/sam2_hiera_large.pt"
+    assert sam2_checkpoint.exists(), f"SAM2 checkpoint not found: {sam2_checkpoint}"
     model_cfg = "sam2_hiera_l.yaml"
     predictor = build_sam2_video_predictor(
         config_file=model_cfg, ckpt_path=sam2_checkpoint, device=device
