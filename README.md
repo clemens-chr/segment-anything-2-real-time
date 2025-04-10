@@ -186,6 +186,16 @@ mamba deactivate
 mamba activate sam2_ros_env
 ```
 
+## Running on a folder of images
+
+```
+python video_sam2.py \
+--input_dir rgb/ \
+--output_dir /masks/
+```
+
+This takes in as input a directory `rgb` with images, and it outputs masks to the `masks` dir.
+
 # SUCCESSES AND FAILURES
 
 ## Florence
