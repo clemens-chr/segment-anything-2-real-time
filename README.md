@@ -1,7 +1,7 @@
 # segment-anything-2 real-time
 Run Segment Anything Model 2 on a **live video stream**
 
-# TYLER DOCUMENTATION (September 8, 2024)
+# TYLER DOCUMENTATION (June 1, 2025)
 
 NOTE: The purpose of this documentation is NOT to be super precise and detailed, but rather to be a quick reference for how to run the code and how it works.
 
@@ -41,7 +41,7 @@ flowchart LR
 
 * `image_topic` is the topic of the RGB image
 
-* `sam2_reset` is a boolean trigger to reset the model. Concretely, if the object moves out of the frame entirely, SAM2 may start tracking the next most similar object. Even if the object returns, it will likely still track the wrong object. At this point, it should be reset with `rostopic pub /sam2_reset std_msgs/Int32 "data: 1"`
+* `sam2_reset` is a boolean trigger to reset the model. Concretely, if the object moves out of the frame entirely, SAM2 may start tracking the next most similar object. Even if the object returns, it will likely still track the wrong object. At this point, it should be reset with `rostopic pub /sam2_reset std_msgs/Int32 "data: 1"`. You can also modify the rosparam text prompt, then run this to restart tracking.
 
 * `sam2_mask` is the mask of the object
 
