@@ -113,20 +113,21 @@ cd Grounded-SAM-2
 
 cd checkpoints
 bash download_ckpts.sh
-
 cd ..
+
 cd gdino_checkpoints
 bash download_ckpts.sh
+cd ..
 
 pip3 install torch torchvision torchaudio
 export CUDA_HOME=/path/to/cuda-12.1/  # e.g., export CUDA_HOME=/usr/local/cuda-12.2
 
 pip install -e .
-pip install --no-build-isolation -e grounding_dino
+pip install --no-build-isolation -e grounding_dino --use-pep517
 
 pip install supervision pycocotools yapf timm 
-pip install dds-cloudapi-sdk
-pip install flash_attn einops
+pip install dds-cloudapi-sdk==0.2.2
+pip install flash_attn einops transformers pyvista trimesh
 
 # May need to pip install a few other things, add to this list as needed
 pip install tyro
@@ -134,7 +135,13 @@ pip install tyro
 # Can also get Grounding DINO 1.5 API token if desired, refer to https://github.com/IDEA-Research/Grounded-SAM-2 for details
 # I put my api tokens in
 vim ~/api_keys/grounded_sam_2_key.txt
-vim ~/api_keys/tml_openai_key.txt 
+vim ~/api_keys/tml_openai_key.txt
+```
+
+This repo:
+```
+cd checkpoints
+./download_ckpts.sh
 ```
 
 Useful ROS tools:
