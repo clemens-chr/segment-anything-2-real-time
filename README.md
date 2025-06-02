@@ -123,11 +123,11 @@ pip3 install torch torchvision torchaudio
 export CUDA_HOME=/path/to/cuda-12.1/  # e.g., export CUDA_HOME=/usr/local/cuda-12.2
 
 pip install -e .
-pip install --no-build-isolation -e grounding_dino --use-pep517
+pip install --no-build-isolation -e grounding_dino --use-pep517  # The --use-pep517 flag is a weird fix I found
 
 pip install supervision pycocotools yapf timm 
 pip install dds-cloudapi-sdk==0.2.2
-pip install flash_attn einops transformers pyvista trimesh
+pip install flash_attn einops transformers pyvista trimesh termcolor
 
 # May need to pip install a few other things, add to this list as needed
 pip install tyro

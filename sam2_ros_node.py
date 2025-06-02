@@ -10,6 +10,7 @@ from cv_bridge import CvBridge
 from PIL import Image
 from sensor_msgs.msg import Image as ROSImage
 from std_msgs.msg import Header, Int32
+from termcolor import colored
 
 from mesh_to_bbox import generate_bbox, mesh_to_description
 from sam2_model import SAM2Model
@@ -46,9 +47,14 @@ class SAM2RosNode:
         camera = rospy.get_param("/camera", None)
         if camera is None:
             DEFAULT_CAMERA = "zed"
-            rospy.logwarn(f"No /camera parameter found, using default camera {DEFAULT_CAMERA}")
+            print(
+                colored(
+                    f"No /camera parameter found, using default camera {DEFAULT_CAMERA}",
+                    "yellow",
+                )
+            )
             camera = DEFAULT_CAMERA
-        rospy.loginfo(f"Using camera: {camera}")
+        print(colored(f"Using camera: {camera}", "green"))
         if camera == "zed":
             self.image_sub_topic = "/zed/zed_node/rgb/image_rect_color"
         elif camera == "realsense":
@@ -85,7 +91,7 @@ class SAM2RosNode:
         # Rate
         RATE_HZ = 1
         self.rate = rospy.Rate(RATE_HZ)
-        rospy.loginfo("SAM2 ROS Node initialized and waiting for images...")
+        print(colored("SAM2 ROS Node initialized and waiting for images...", "green"))
 
         # Cache generated text prompt to lower cost to generate bbox
         self.cached_generated_text_prompt: Optional[str] = None
@@ -93,34 +99,39 @@ class SAM2RosNode:
     def image_callback(self, data):
         # Convert the ROS image message to a format OpenCV can work with
         self.rgb_image = self.bridge.imgmsg_to_cv2(data, "rgb8")
-        rospy.logdebug(f"Image received from {self.image_sub_topic}")
 
     def reset_callback(self, data):
         if data.data > 0:
-            rospy.loginfo("Resetting the sam2 node")
+            print(colored("Resetting the sam2 node", "green"))
             self.is_mask_initialized = False
         else:
-            rospy.loginfo("Received a reset message with data <= 0")
+            print(colored("Received a reset message with data <= 0", "green"))
 
     def generate_sam_prompts_from_mesh(
         self, rgb_image: np.ndarray, mesh_filepath: Path
     ) -> Optional[dict]:
         if self.cached_generated_text_prompt is not None:
-            rospy.loginfo(
-                f"Using cached generated text prompt: {self.cached_generated_text_prompt}"
+            print(
+                colored(
+                    f"Using cached generated text prompt: {self.cached_generated_text_prompt}",
+                    "green",
+                )
             )
         else:
-            rospy.loginfo(
-                "No cached generated text prompt, generating new text prompt..."
+            print(
+                colored(
+                    "No cached generated text prompt, generating new text prompt...",
+                    "green",
+                )
             )
 
             # Use mesh to predict the bounding box of the object to get a prompt
-            rospy.loginfo(f"Using mesh for prompt: {mesh_filepath}")
+            print(colored(f"Using mesh for prompt: {mesh_filepath}", "green"))
             assert mesh_filepath.exists(), f"{mesh_filepath}"
             _, generated_text_prompt = mesh_to_description(
                 mesh_filepath=mesh_filepath,
             )
-            rospy.loginfo(f"Generated text prompt: {generated_text_prompt}")
+            print(colored(f"Generated text prompt: {generated_text_prompt}", "green"))
             self.cached_generated_text_prompt = generated_text_prompt
 
         return self.generate_sam_prompts_from_text(
@@ -146,13 +157,13 @@ class SAM2RosNode:
                 "box": bboxes[0],
             }
         except ValueError as e:
-            rospy.logerr(f"Error: {e}")
-            rospy.logerr("No object found in the image using text prompt")
+            print(colored(f"Error: {e}", "red"))
+            print(colored("No object found in the image using text prompt", "red"))
             return None
 
     def generate_sam_prompts(self, rgb_image: np.ndarray) -> Optional[dict]:
         PROMPT_METHOD: Literal["mesh", "text", "hardcoded"] = "text"  # CHANGE
-        rospy.loginfo(f"Using prompt method: {PROMPT_METHOD}")
+        print(colored(f"Using prompt method: {PROMPT_METHOD}", "green"))
 
         if PROMPT_METHOD == "mesh":
             mesh_file = rospy.get_param("/mesh_file", None)
@@ -164,8 +175,8 @@ class SAM2RosNode:
                     "/juno/u/oliviayl/repos/cross_embodiment/FoundationPose/kiri_meshes/cup_ycbv/textured.obj"
                 )
                 mesh_file = str(DEFAULT_MESH_FILEPATH)
-                rospy.logwarn(f"Using default mesh file: {mesh_file}")
-            rospy.loginfo(f"Using mesh for prompt: {mesh_file}")
+                print(colored(f"Using default mesh file: {mesh_file}", "yellow"))
+            print(colored(f"Using mesh for prompt: {mesh_file}", "green"))
 
             prompts = self.generate_sam_prompts_from_mesh(
                 rgb_image=rgb_image, mesh_filepath=Path(mesh_file)
@@ -177,14 +188,14 @@ class SAM2RosNode:
                 # DEFAULT_TEXT_PROMPT = "red cracker box"
 
                 text_prompt = DEFAULT_TEXT_PROMPT
-                rospy.logwarn(f"Using default text prompt: {text_prompt}")
+                print(colored(f"Using default text prompt: {text_prompt}", "yellow"))
 
-            rospy.loginfo(f"Using text prompt for prompt: {text_prompt}")
+            print(colored(f"Using text prompt for prompt: {text_prompt}", "green"))
             prompts = self.generate_sam_prompts_from_text(
                 rgb_image=rgb_image, text_prompt=text_prompt
             )
         elif PROMPT_METHOD == "hardcoded":
-            rospy.loginfo("Using hardcoded prompt")
+            print(colored("Using hardcoded prompt", "green"))
             prompts = self.sam2_model.get_hardcoded_prompts()
         else:
             raise ValueError(f"Unknown PROMPT_METHOD: {PROMPT_METHOD}")
@@ -214,7 +225,7 @@ class SAM2RosNode:
         # Wait for the first image
         ##############################
         while not rospy.is_shutdown() and self.rgb_image is None:
-            rospy.loginfo("Waiting for the first image...")
+            print(colored("Waiting for the first image...", "green"))
             rospy.sleep(0.1)
 
         assert self.rgb_image is not None, "No image received"
@@ -228,12 +239,18 @@ class SAM2RosNode:
                 self.prompts = self.generate_sam_prompts(rgb_image=first_rgb_image)
 
                 if self.prompts is None:
-                    rospy.logerr(
-                        "Error: prompts is None. Likely means no object found in the image."
+                    print(
+                        colored(
+                            "Error: prompts is None. Likely means no object found in the image.",
+                            "red",
+                        )
                     )
                     WAIT_TIME_SECONDS = 0.5
-                    rospy.logerr(
-                        f"Waiting for {WAIT_TIME_SECONDS} seconds before trying again..."
+                    print(
+                        colored(
+                            f"Waiting for {WAIT_TIME_SECONDS} seconds before trying again...",
+                            "red",
+                        )
                     )
                     rospy.sleep(WAIT_TIME_SECONDS)
                     self.is_mask_initialized = False
@@ -257,21 +274,28 @@ class SAM2RosNode:
                     rgb_image=new_rgb_image, first=False, prompts=None
                 )
 
-                assert (
-                    mask.shape == new_rgb_image.shape
-                ), f"{mask.shape} != {new_rgb_image.shape}"
+                assert mask.shape == new_rgb_image.shape, (
+                    f"{mask.shape} != {new_rgb_image.shape}"
+                )
                 mask_rgb = mask
 
                 # Check if mask is terrible
                 num_mask_pixels = (mask_rgb[..., 0] > 0).sum()
                 MIN_MASK_PIXELS = 0
                 if num_mask_pixels <= MIN_MASK_PIXELS:
-                    rospy.logwarn(
-                        f"Mask is terrible, num_mask_pixels={num_mask_pixels}"
+                    print(
+                        colored(
+                            f"Mask is terrible, num_mask_pixels={num_mask_pixels}",
+                            "yellow",
+                        )
                     )
                     self.is_mask_initialized = False
                 else:
-                    rospy.loginfo(f"Mask is good, num_mask_pixels={num_mask_pixels}")
+                    print(
+                        colored(
+                            f"Mask is good, num_mask_pixels={num_mask_pixels}", "green"
+                        )
+                    )
                     self.is_mask_initialized = True
 
                 # Publish the number of mask pixels
@@ -282,12 +306,16 @@ class SAM2RosNode:
                 mask_msg.header = Header(stamp=rospy.Time.now())
                 self.mask_pub.publish(mask_msg)
 
-                rospy.loginfo("Predicted mask published to /sam2_mask")
+                print(colored("Predicted mask published to /sam2_mask", "green"))
 
                 # Publish the mask with prompt
                 PUB_MASK_WITH_PROMPT = True
                 if self.prompts is None:
-                    rospy.logwarn("prompts is None, skipping mask_with_prompt_pub")
+                    print(
+                        colored(
+                            "prompts is None, skipping mask_with_prompt_pub", "yellow"
+                        )
+                    )
                 if PUB_MASK_WITH_PROMPT and self.prompts is not None:
                     mask_rgb_with_prompt = mask_rgb.copy()
 
@@ -302,11 +330,19 @@ class SAM2RosNode:
                     BOX_THICKNESS = 2
                     if DRAW_BOX:
                         # Draw horizontal lines
-                        mask_rgb_with_prompt[y_min:y_min+BOX_THICKNESS, x_min:x_max] = [255, 0, 0]  # Top
-                        mask_rgb_with_prompt[y_max-BOX_THICKNESS:y_max, x_min:x_max] = [255, 0, 0]  # Bottom
+                        mask_rgb_with_prompt[
+                            y_min : y_min + BOX_THICKNESS, x_min:x_max
+                        ] = [255, 0, 0]  # Top
+                        mask_rgb_with_prompt[
+                            y_max - BOX_THICKNESS : y_max, x_min:x_max
+                        ] = [255, 0, 0]  # Bottom
                         # Draw vertical lines
-                        mask_rgb_with_prompt[y_min:y_max, x_min:x_min+BOX_THICKNESS] = [255, 0, 0]  # Left
-                        mask_rgb_with_prompt[y_min:y_max, x_max-BOX_THICKNESS:x_max] = [255, 0, 0]  # Right
+                        mask_rgb_with_prompt[
+                            y_min:y_max, x_min : x_min + BOX_THICKNESS
+                        ] = [255, 0, 0]  # Left
+                        mask_rgb_with_prompt[
+                            y_min:y_max, x_max - BOX_THICKNESS : x_max
+                        ] = [255, 0, 0]  # Right
                     else:
                         x_mean, y_mean = (
                             int((x_min + x_max) / 2),
@@ -326,8 +362,11 @@ class SAM2RosNode:
                 done_time = rospy.Time.now()
                 self.rate.sleep()
                 after_sleep_time = rospy.Time.now()
-                rospy.loginfo(
-                    f"Max rate: {np.round(1./(done_time - start_time).to_sec())} Hz ({np.round((done_time - start_time).to_sec() * 1000)} ms), Actual rate with sleep: {np.round(1./(after_sleep_time - start_time).to_sec())} Hz"
+                print(
+                    colored(
+                        f"Max rate: {np.round(1.0 / (done_time - start_time).to_sec())} Hz ({np.round((done_time - start_time).to_sec() * 1000)} ms), Actual rate with sleep: {np.round(1.0 / (after_sleep_time - start_time).to_sec())} Hz",
+                        "green",
+                    )
                 )
 
 
@@ -336,4 +375,4 @@ if __name__ == "__main__":
         node = SAM2RosNode()
         node.run()
     except rospy.ROSInterruptException:
-        rospy.loginfo("Shutting down SAM2 ROS Node.")
+        print(colored("Shutting down SAM2 ROS Node.", "green"))
