@@ -156,7 +156,7 @@ def main(
         # Get negative prompt as click
         plt.figure(figsize=(9, 6))
         plt.title(
-            f"Click on the image to select the NEGATIVE point on arm (Frame {ann_frame_idx})"
+            f"Click on the image to select the NEGATIVE point (Frame {ann_frame_idx})"
         )
         neg_img = Image.open(jpg_filepaths[ann_frame_idx])
         plt.imshow(neg_img)
@@ -170,7 +170,7 @@ def main(
         points = np.array([[x, y], [neg_x, neg_y]], dtype=np.float32)
 
         # for labels, `1` means positive click and `0` means negative click
-        labels = np.array([1, 0], np.int32)
+        labels = np.array([1, 0], dtype=np.int32)
 
         _, out_obj_ids, out_mask_logits = predictor.add_new_points(
             inference_state=inference_state,
@@ -183,7 +183,7 @@ def main(
         points = np.array([[x, y]], dtype=np.float32)
 
         # for labels, `1` means positive click and `0` means negative click
-        labels = np.array([1], np.int32)
+        labels = np.array([1], dtype=np.int32)
 
         _, out_obj_ids, out_mask_logits = predictor.add_new_points(
             inference_state=inference_state,

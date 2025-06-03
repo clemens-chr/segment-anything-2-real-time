@@ -82,7 +82,7 @@ class SAM2Model:
         # Let's add a positive click at (x, y)
         points = np.array([[480, 440]], dtype=np.float32)
         # for labels, `1` means positive click and `0` means negative click
-        point_labels = np.array([1], np.int32)
+        point_labels = np.array([1], dtype=np.int32)
 
         # Need (N, 2) and (N,) shapes
         # Or both None

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 from pathlib import Path
-from typing import Literal, Optional
+from typing import Literal, Optional, Tuple
 
 import cv2
 import numpy as np
@@ -24,6 +24,64 @@ def bgr_to_pil(bgr_image: np.ndarray) -> Image.Image:
 def rgb_to_pil(rgb_image: np.ndarray) -> Image.Image:
     # PIL expects RGB
     return Image.fromarray(rgb_image)
+
+
+def get_user_point(rgb_image: np.ndarray, title: str) -> Tuple[int, int]:
+    import matplotlib.pyplot as plt
+
+    # Get prompt as click
+    plt.figure(figsize=(9, 6))
+    plt.title(title)
+    plt.imshow(rgb_image)
+    plt.axis("off")
+    points = plt.ginput(1)  # get one click
+    plt.close()
+
+    x, y = int(points[0][0]), int(points[0][1])
+    return x, y
+
+
+def draw_prompts(image: np.ndarray, prompts: dict) -> np.ndarray:
+    _H, _W, C = image.shape
+    assert C == 3, f"{C}"
+    image = image.copy()
+
+    RED = [255, 0, 0]
+    BLUE = [0, 0, 255]
+
+    if prompts["box"] is not None:
+        x_min, y_min, x_max, y_max = (
+            int(prompts["box"][0]),
+            int(prompts["box"][1]),
+            int(prompts["box"][2]),
+            int(prompts["box"][3]),
+        )
+        BOX_THICKNESS = 2
+        BOX_COLOR = BLUE
+        # Draw horizontal lines
+        image[y_min : y_min + BOX_THICKNESS, x_min:x_max] = BOX_COLOR  # Top
+        image[y_max - BOX_THICKNESS : y_max, x_min:x_max] = BOX_COLOR  # Bottom
+        # Draw vertical lines
+        image[y_min:y_max, x_min : x_min + BOX_THICKNESS] = BOX_COLOR  # Left
+        image[y_min:y_max, x_max - BOX_THICKNESS : x_max] = BOX_COLOR  # Right
+
+    if prompts["points"] is not None:
+        points = prompts["points"]
+        labels = prompts["labels"]
+        N_points = points.shape[0]
+        for i in range(N_points):
+            point = points[i]
+            label = labels[i]
+            x, y = int(point[0]), int(point[1])
+            POSITIVE_COLOR = BLUE
+            NEGATIVE_COLOR = RED
+            if label == 1:
+                image[y - 5 : y + 5, x - 5 : x + 5] = POSITIVE_COLOR
+            elif label == 0:
+                image[y - 5 : y + 5, x - 5 : x + 5] = NEGATIVE_COLOR
+            else:
+                raise ValueError(f"Unknown label: {label}")
+    return image
 
 
 class SAM2RosNode:
@@ -161,8 +219,67 @@ class SAM2RosNode:
             print(colored("No object found in the image using text prompt", "red"))
             return None
 
+    def get_user_prompt(
+        self,
+        rgb_image: np.ndarray,
+        use_negative_prompt: bool = False,
+        use_2_points: bool = False,
+    ):
+        import matplotlib.pyplot as plt
+        import numpy as np
+
+        # Get prompt as click
+        x, y = get_user_point(
+            rgb_image=rgb_image, title="Click on the image to select a point"
+        )
+        print(f"Clicked point: ({x}, {y})")
+
+        if use_negative_prompt:
+            # Get negative prompt as click
+            neg_x, neg_y = get_user_point(
+                rgb_image=rgb_image,
+                title="Click on the image to select a NEGATIVE point",
+            )
+            print(f"Clicked negative point: ({neg_x}, {neg_y})")
+
+            points = np.array([[x, y], [neg_x, neg_y]], dtype=np.float32)
+
+            # for labels, `1` means positive click and `0` means negative click
+            labels = np.array([1, 0], dtype=np.int32)
+        elif use_2_points:
+            # Get a second prompt as click
+            x_2, y_2 = get_user_point(
+                rgb_image=rgb_image,
+                title="Click on the image to select a SECOND point",
+            )
+            print(f"Clicked point: ({x_2}, {y_2})")
+
+            points = np.array([[x, y], [x_2, y_2]], dtype=np.float32)
+
+            # for labels, `1` means positive click and `0` means negative click
+            labels = np.array([1, 1], dtype=np.int32)
+
+        else:
+            points = np.array([[x, y]], dtype=np.float32)
+
+            # for labels, `1` means positive click and `0` means negative click
+            labels = np.array([1], dtype=np.int32)
+
+        return {
+            "points": points,
+            "labels": labels,
+            "box": None,
+        }
+
     def generate_sam_prompts(self, rgb_image: np.ndarray) -> Optional[dict]:
-        PROMPT_METHOD: Literal["mesh", "text", "hardcoded"] = "text"  # CHANGE
+        PROMPT_METHOD: Literal[
+            "mesh",
+            "text",
+            "hardcoded",
+            "user_select",
+            "user_select_with_negative",
+            "user_select_with_2_points",
+        ] = "text"  # CHANGE
         print(colored(f"Using prompt method: {PROMPT_METHOD}", "green"))
 
         if PROMPT_METHOD == "mesh":
@@ -197,6 +314,24 @@ class SAM2RosNode:
         elif PROMPT_METHOD == "hardcoded":
             print(colored("Using hardcoded prompt", "green"))
             prompts = self.sam2_model.get_hardcoded_prompts()
+        elif (
+            PROMPT_METHOD == "user_select"
+            or PROMPT_METHOD == "user_select_with_negative"
+            or PROMPT_METHOD == "user_select_with_2_points"
+        ):
+            use_negative_prompt = PROMPT_METHOD == "user_select_with_negative"
+            use_2_points = PROMPT_METHOD == "user_select_with_2_points"
+            print(
+                colored(
+                    f"Using user select prompt (use_negative_prompt={use_negative_prompt}, use_2_points={use_2_points})",
+                    "green",
+                )
+            )
+            prompts = self.get_user_prompt(
+                rgb_image=rgb_image,
+                use_negative_prompt=use_negative_prompt,
+                use_2_points=use_2_points,
+            )
         else:
             raise ValueError(f"Unknown PROMPT_METHOD: {PROMPT_METHOD}")
 
@@ -317,40 +452,9 @@ class SAM2RosNode:
                         )
                     )
                 if PUB_MASK_WITH_PROMPT and self.prompts is not None:
-                    mask_rgb_with_prompt = mask_rgb.copy()
-
-                    # HACK: Draw on the mask
-                    x_min, y_min, x_max, y_max = (
-                        int(self.prompts["box"][0]),
-                        int(self.prompts["box"][1]),
-                        int(self.prompts["box"][2]),
-                        int(self.prompts["box"][3]),
+                    mask_rgb_with_prompt = draw_prompts(
+                        image=mask_rgb.copy(), prompts=self.prompts
                     )
-                    DRAW_BOX = True
-                    BOX_THICKNESS = 2
-                    if DRAW_BOX:
-                        # Draw horizontal lines
-                        mask_rgb_with_prompt[
-                            y_min : y_min + BOX_THICKNESS, x_min:x_max
-                        ] = [255, 0, 0]  # Top
-                        mask_rgb_with_prompt[
-                            y_max - BOX_THICKNESS : y_max, x_min:x_max
-                        ] = [255, 0, 0]  # Bottom
-                        # Draw vertical lines
-                        mask_rgb_with_prompt[
-                            y_min:y_max, x_min : x_min + BOX_THICKNESS
-                        ] = [255, 0, 0]  # Left
-                        mask_rgb_with_prompt[
-                            y_min:y_max, x_max - BOX_THICKNESS : x_max
-                        ] = [255, 0, 0]  # Right
-                    else:
-                        x_mean, y_mean = (
-                            int((x_min + x_max) / 2),
-                            int((y_min + y_max) / 2),
-                        )
-                        mask_rgb_with_prompt[
-                            y_mean - 5 : y_mean + 5, x_mean - 5 : x_mean + 5
-                        ] = [0, 0, 255]
 
                     # Convert OpenCV image (mask) to ROS Image message
                     mask_with_prompt_msg = self.bridge.cv2_to_imgmsg(
