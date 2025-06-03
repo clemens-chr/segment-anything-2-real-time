@@ -3,6 +3,7 @@
 from pathlib import Path
 from typing import Literal, Optional, Tuple
 
+import matplotlib.pyplot as plt
 import cv2
 import numpy as np
 import rospy
@@ -27,7 +28,6 @@ def rgb_to_pil(rgb_image: np.ndarray) -> Image.Image:
 
 
 def get_user_point(rgb_image: np.ndarray, title: str) -> Tuple[int, int]:
-    import matplotlib.pyplot as plt
 
     # Get prompt as click
     plt.figure(figsize=(9, 6))
@@ -225,9 +225,6 @@ class SAM2RosNode:
         use_negative_prompt: bool = False,
         use_2_points: bool = False,
     ):
-        import matplotlib.pyplot as plt
-        import numpy as np
-
         # Get prompt as click
         x, y = get_user_point(
             rgb_image=rgb_image, title="Click on the image to select a point"

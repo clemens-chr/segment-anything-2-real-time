@@ -110,9 +110,9 @@ def main(
                 rgb_img.save(jpg_file, "JPEG")
             jpg_filepaths.append(jpg_file)
     else:
-        assert (
-            len(jpg_filepaths) == len(png_filepaths)
-        ), "The number of jpg and png frames must be the same, something might be wrong..."
+        assert len(jpg_filepaths) == len(png_filepaths), (
+            "The number of jpg and png frames must be the same, something might be wrong..."
+        )
         print(
             f"Found {len(jpg_filepaths)} jpg frames and {len(png_filepaths)} png frames"
         )
@@ -224,9 +224,9 @@ def main(
         if mask.ndim == 2:
             height, width = mask.shape
         elif mask.ndim == 3:
-            assert (
-                mask.shape[0] == 1 or mask.shape[-1] == 1
-            ), f"The mask should be a single channel, but got shape {mask.shape}"
+            assert mask.shape[0] == 1 or mask.shape[-1] == 1, (
+                f"The mask should be a single channel, but got shape {mask.shape}"
+            )
             if mask.shape[0] == 1:
                 height, width = mask.shape[1:]
                 mask = mask.squeeze(axis=0)
