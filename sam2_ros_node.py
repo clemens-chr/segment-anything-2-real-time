@@ -3,8 +3,8 @@
 from pathlib import Path
 from typing import Literal, Optional, Tuple
 
-import matplotlib.pyplot as plt
 import cv2
+import matplotlib.pyplot as plt
 import numpy as np
 import rospy
 from cv_bridge import CvBridge
@@ -28,7 +28,6 @@ def rgb_to_pil(rgb_image: np.ndarray) -> Image.Image:
 
 
 def get_user_point(rgb_image: np.ndarray, title: str) -> Tuple[int, int]:
-
     # Get prompt as click
     plt.figure(figsize=(9, 6))
     plt.title(title)

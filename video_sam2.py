@@ -1,5 +1,5 @@
 import os
-from typing import Optional
+from typing import Optional, Tuple
 
 # if using Apple MPS, fall back to CPU for unsupported ops
 os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
@@ -13,10 +13,24 @@ import torch
 from PIL import Image
 
 
+def get_user_point(rgb_image: np.ndarray, title: str) -> Tuple[int, int]:
+    # Get prompt as click
+    plt.figure(figsize=(9, 6))
+    plt.title(title)
+    plt.imshow(rgb_image)
+    plt.axis("off")
+    points = plt.ginput(1)  # get one click
+    plt.close()
+
+    x, y = int(points[0][0]), int(points[0][1])
+    return x, y
+
+
 def main(
     input_dir: Path,
     output_dir: Path,
     use_negative_prompt: bool,
+    use_second_prompt: bool,
     visualize: bool,
 ) -> None:
     # select the device for computation
@@ -141,57 +155,50 @@ def main(
     )
 
     # Get prompt as click
-    plt.figure(figsize=(9, 6))
-    plt.title(f"Click on the image to select a point (Frame {ann_frame_idx})")
-    img = Image.open(jpg_filepaths[ann_frame_idx])
-    plt.imshow(img)
-    plt.axis("off")
-    points = plt.ginput(1)  # get one click
-    plt.close()
-
-    x, y = int(points[0][0]), int(points[0][1])
+    img = np.array(Image.open(jpg_filepaths[ann_frame_idx]))
+    x, y = get_user_point(
+        rgb_image=img,
+        title=f"Click on the image to select a point (Frame {ann_frame_idx})",
+    )
     print(f"Clicked point: ({x}, {y})")
 
     if use_negative_prompt:
         # Get negative prompt as click
-        plt.figure(figsize=(9, 6))
-        plt.title(
-            f"Click on the image to select the NEGATIVE point (Frame {ann_frame_idx})"
+        neg_x, neg_y = get_user_point(
+            rgb_image=img,
+            title=f"Click on the image to select the NEGATIVE point (Frame {ann_frame_idx})",
         )
-        neg_img = Image.open(jpg_filepaths[ann_frame_idx])
-        plt.imshow(neg_img)
-        plt.axis("off")
-        neg_points = plt.ginput(1)  # get one click
-        plt.close()
-
-        neg_x, neg_y = int(neg_points[0][0]), int(neg_points[0][1])
         print(f"Clicked point: ({neg_x}, {neg_y})")
 
         points = np.array([[x, y], [neg_x, neg_y]], dtype=np.float32)
 
         # for labels, `1` means positive click and `0` means negative click
         labels = np.array([1, 0], dtype=np.int32)
-
-        _, out_obj_ids, out_mask_logits = predictor.add_new_points(
-            inference_state=inference_state,
-            frame_idx=ann_frame_idx,
-            obj_id=ann_obj_id,
-            points=points,
-            labels=labels,
+    elif use_second_prompt:
+        # Get second prompt as click
+        second_x, second_y = get_user_point(
+            rgb_image=img,
+            title=f"Click on the image to select the SECOND point (Frame {ann_frame_idx})",
         )
+        print(f"Clicked point: ({second_x}, {second_y})")
+
+        points = np.array([[x, y], [second_x, second_y]], dtype=np.float32)
+
+        # for labels, `1` means positive click and `0` means negative click
+        labels = np.array([1, 1], dtype=np.int32)
     else:
         points = np.array([[x, y]], dtype=np.float32)
 
         # for labels, `1` means positive click and `0` means negative click
         labels = np.array([1], dtype=np.int32)
 
-        _, out_obj_ids, out_mask_logits = predictor.add_new_points(
-            inference_state=inference_state,
-            frame_idx=ann_frame_idx,
-            obj_id=ann_obj_id,
-            points=points,
-            labels=labels,
-        )
+    _, out_obj_ids, out_mask_logits = predictor.add_new_points(
+        inference_state=inference_state,
+        frame_idx=ann_frame_idx,
+        obj_id=ann_obj_id,
+        points=points,
+        labels=labels,
+    )
 
     # show the results on the current (interacted) frame
     if visualize:
@@ -258,11 +265,13 @@ if __name__ == "__main__":
     parser.add_argument("--input_dir", required=True, type=Path)
     parser.add_argument("--output_dir", required=True, type=Path)
     parser.add_argument("--use_negative_prompt", action="store_true")
+    parser.add_argument("--use_second_prompt", action="store_true")
     parser.add_argument("--visualize", action="store_true")
     args = parser.parse_args()
     main(
         input_dir=args.input_dir,
         output_dir=args.output_dir,
         use_negative_prompt=args.use_negative_prompt,
+        use_second_prompt=args.use_second_prompt,
         visualize=args.visualize,
     )
