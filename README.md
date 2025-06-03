@@ -200,15 +200,25 @@ rqt_image_view &
 [ERROR] [1748822629.917124127]: Failed to load nodelet [rqt_image_view/ImageView_0] of type [rqt_image_view/ImageView]: Failed to load library /home/tylerlum/miniconda3/envs/sam2_ros_env_v2/lib//librqt_image_view.so. Make sure that you are calling the PLUGINLIB_EXPORT_CLASS macro in the library code, and that names are consistent between this macro and your XML. Error string: Could not load library (Poco exception = libopencv_core.so.410: cannot open shared object file: No such file or directory)
 ```
 
+This is a very strange and annoying error I have not fully figured out.
+
 Check your opencv version and update the version to match:
 ```
 python -c "import cv2; print(cv2.__version__)"
 4.11.0
 ```
 
-Update:
+You can update it to match like so:
 ```
 mamba install opencv=4.10 -c conda-forge
+```
+
+BUT, this may break other things like the sam2_ros_node.py.
+
+```
+  File "/home/tylerlum/miniconda3/envs/sam2_ros_env_v2/lib/python3.11/site-packages/cv_bridge/core.py", line 91, in encoding_to_cvtype2
+    from cv_bridge.boost.cv_bridge_boost import getCvType
+ImportError: /home/tylerlum/miniconda3/envs/sam2_ros_env_v2/lib/python3.11/site-packages/cv_bridge/boost/cv_bridge_boost.so: undefined symbol: _ZTIN5boost6python7objects21py_function_impl_baseE
 ```
 
 ## Running on a folder of images
