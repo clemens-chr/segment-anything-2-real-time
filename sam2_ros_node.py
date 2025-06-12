@@ -12,6 +12,7 @@ from PIL import Image
 from sensor_msgs.msg import Image as ROSImage
 from std_msgs.msg import Header, Int32
 from termcolor import colored
+import pyrealsense2 as rs  # Add RealSense import
 
 from mesh_to_bbox import generate_bbox, mesh_to_description
 from sam2_model import SAM2Model
@@ -101,29 +102,17 @@ class SAM2RosNode:
         # Initialize the CvBridge to convert between ROS images and OpenCV images
         self.bridge = CvBridge()
 
-        # Check camera parameter
-        camera = rospy.get_param("/camera", None)
-        if camera is None:
-            DEFAULT_CAMERA = "zed"
-            print(
-                colored(
-                    f"No /camera parameter found, using default camera {DEFAULT_CAMERA}",
-                    "yellow",
-                )
-            )
-            camera = DEFAULT_CAMERA
-        print(colored(f"Using camera: {camera}", "green"))
-        if camera == "zed":
-            self.image_sub_topic = "/zed/zed_node/rgb/image_rect_color"
-        elif camera == "realsense":
-            self.image_sub_topic = "/camera/color/image_raw"
-        else:
-            raise ValueError(f"Unknown camera: {camera}")
+        # Add mask caching
+        self.cached_mask = None
+        self.use_mask_caching = rospy.get_param("~use_mask_caching", True)
+        self.max_retries = rospy.get_param("~max_mask_retries", 50)
+        self.current_retries = 0
+        self.MIN_MASK_PIXELS = rospy.get_param("~min_mask_pixels", 100)  # Minimum pixels for a good mask
 
-        # Subscribe to the camera topic
-        self.image_sub = rospy.Subscriber(
-            self.image_sub_topic, ROSImage, self.image_callback
-        )
+        # Try to initialize RealSense first
+        self.use_realsense_api = False
+        self.pipeline = None
+        self.initialize_realsense()
 
         # Publisher for the predicted mask
         QUEUE_SIZE = 1  # Always use the latest, okay to drop old messages
@@ -147,16 +136,82 @@ class SAM2RosNode:
         )
 
         # Rate
-        RATE_HZ = 1
+        RATE_HZ = 10
         self.rate = rospy.Rate(RATE_HZ)
         print(colored("SAM2 ROS Node initialized and waiting for images...", "green"))
 
         # Cache generated text prompt to lower cost to generate bbox
         self.cached_generated_text_prompt: Optional[str] = None
 
+    def initialize_realsense(self):
+        try:
+            if self.pipeline is not None:
+                self.pipeline.stop()
+            
+            self.pipeline = rs.pipeline()
+            self.config = rs.config()
+            self.config.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 30)
+            self.pipeline.start(self.config)
+            
+            # Warmup: Get first 10 frames to adjust exposure
+            print(colored("Warming up RealSense camera (getting first 10 frames)...", "green"))
+            for _ in range(10):
+                frames = self.pipeline.wait_for_frames(timeout_ms=1000)
+                color_frame = frames.get_color_frame()
+                if not color_frame:
+                    raise RuntimeError("Failed to get color frame during warmup")
+                rospy.sleep(0.1)  # Small delay between frames
+            
+            print(colored("Successfully connected to RealSense camera", "green"))
+            self.use_realsense_api = True
+        except Exception as e:
+            print(colored(f"Could not connect to RealSense camera: {e}", "yellow"))
+            self.use_realsense_api = False
+            # Check camera parameter for ZED
+            camera = rospy.get_param("/camera", None)
+            if camera is None:
+                DEFAULT_CAMERA = "zed"
+                print(
+                    colored(
+                        f"No /camera parameter found, using default camera {DEFAULT_CAMERA}",
+                        "yellow",
+                    )
+                )
+                camera = DEFAULT_CAMERA
+            print(colored(f"Using camera: {camera}", "green"))
+            if camera == "zed":
+                self.image_sub_topic = "/zed/zed_node/rgb/image_rect_color"
+            elif camera == "realsense":
+                self.image_sub_topic = "/camera/color/image_raw"
+            else:
+                raise ValueError(f"Unknown camera: {camera}")
+
+            # Subscribe to the camera topic
+            self.image_sub = rospy.Subscriber(
+                self.image_sub_topic, ROSImage, self.image_callback
+            )
+
     def image_callback(self, data):
         # Convert the ROS image message to a format OpenCV can work with
         self.rgb_image = self.bridge.imgmsg_to_cv2(data, "rgb8")
+
+    def get_realsense_image(self):
+        # Get frames from RealSense
+        try:
+            frames = self.pipeline.wait_for_frames(timeout_ms=1000)  # Reduced timeout
+            color_frame = frames.get_color_frame()
+            if not color_frame:
+                raise RuntimeError("Failed to get color frame")
+            
+            # Convert to numpy array
+            color_image = np.asanyarray(color_frame.get_data())
+            # Convert BGR to RGB
+            self.rgb_image = cv2.cvtColor(color_image, cv2.COLOR_BGR2RGB)
+        except Exception as e:
+            print(colored(f"Error getting RealSense frame: {e}", "red"))
+            print(colored("Attempting to reconnect to RealSense...", "yellow"))
+            self.initialize_realsense()
+            return None
 
     def reset_callback(self, data):
         if data.data > 0:
@@ -276,7 +331,7 @@ class SAM2RosNode:
             "user_select",
             "user_select_with_negative",
             "user_select_with_2_points",
-        ] = "text"  # CHANGE
+        ] = "user_select"  # CHANGE
         print(colored(f"Using prompt method: {PROMPT_METHOD}", "green"))
 
         if PROMPT_METHOD == "mesh":
@@ -352,17 +407,31 @@ class SAM2RosNode:
 
         return prompts
 
+    def is_good_mask(self, mask: np.ndarray) -> bool:
+        """Check if the mask is good enough."""
+        num_mask_pixels = (mask[..., 0] > 0).sum()
+        return num_mask_pixels > self.MIN_MASK_PIXELS
+
     def run(self):
         ##############################
         # Wait for the first image
         ##############################
-        while not rospy.is_shutdown() and self.rgb_image is None:
+        while not rospy.is_shutdown():
+            if self.use_realsense_api:
+                self.get_realsense_image()
+            if self.rgb_image is not None:
+                break
             print(colored("Waiting for the first image...", "green"))
             rospy.sleep(0.1)
 
         assert self.rgb_image is not None, "No image received"
 
         while not rospy.is_shutdown():
+            if self.use_realsense_api:
+                self.get_realsense_image()
+                if self.rgb_image is None:  # If reconnection failed
+                    continue
+                
             if not self.is_mask_initialized:
                 ##############################
                 # Run first time
@@ -393,7 +462,14 @@ class SAM2RosNode:
                         first=True,
                         prompts=self.prompts,
                     )
-                    self.is_mask_initialized = True
+                    
+                    if self.is_good_mask(mask):
+                        self.cached_mask = mask.copy()
+                        self.is_mask_initialized = True
+                        print(colored("Initial mask is good, caching it", "green"))
+                    else:
+                        print(colored("Initial mask is not good enough, retrying...", "yellow"))
+                        self.is_mask_initialized = False
             else:
                 ##############################
                 # Track
@@ -406,35 +482,43 @@ class SAM2RosNode:
                     rgb_image=new_rgb_image, first=False, prompts=None
                 )
 
-                assert mask.shape == new_rgb_image.shape, (
-                    f"{mask.shape} != {new_rgb_image.shape}"
-                )
-                mask_rgb = mask
-
                 # Check if mask is terrible
-                num_mask_pixels = (mask_rgb[..., 0] > 0).sum()
-                MIN_MASK_PIXELS = 0
-                if num_mask_pixels <= MIN_MASK_PIXELS:
+                if not self.is_good_mask(mask):
                     print(
                         colored(
-                            f"Mask is terrible, num_mask_pixels={num_mask_pixels}",
+                            f"Mask is terrible, num_mask_pixels={(mask[..., 0] > 0).sum()}",
                             "yellow",
                         )
                     )
-                    self.is_mask_initialized = False
+                    if self.use_mask_caching and self.cached_mask is not None:
+                        print(colored("Using cached mask", "yellow"))
+                        mask = self.cached_mask.copy()
+                        self.current_retries += 1
+                        
+                        if self.current_retries >= self.max_retries:
+                            print(colored("Max retries reached, reinitializing mask", "red"))
+                            self.is_mask_initialized = False
+                            self.current_retries = 0
+                    else:
+                        self.is_mask_initialized = False
                 else:
                     print(
                         colored(
-                            f"Mask is good, num_mask_pixels={num_mask_pixels}", "green"
+                            f"Mask is good, num_mask_pixels={(mask[..., 0] > 0).sum()}", "green"
                         )
                     )
+                    if self.use_mask_caching:
+                        self.cached_mask = mask.copy()
+                        print(colored("Updated cached mask", "green"))
+                    self.current_retries = 0
                     self.is_mask_initialized = True
 
                 # Publish the number of mask pixels
+                num_mask_pixels = (mask[..., 0] > 0).sum()
                 self.num_mask_pixels_pub.publish(Int32(data=num_mask_pixels))
 
                 # Convert OpenCV image (mask) to ROS Image message
-                mask_msg = self.bridge.cv2_to_imgmsg(mask_rgb, encoding="rgb8")
+                mask_msg = self.bridge.cv2_to_imgmsg(mask, encoding="rgb8")
                 mask_msg.header = Header(stamp=rospy.Time.now())
                 self.mask_pub.publish(mask_msg)
 
@@ -450,7 +534,7 @@ class SAM2RosNode:
                     )
                 if PUB_MASK_WITH_PROMPT and self.prompts is not None:
                     mask_rgb_with_prompt = draw_prompts(
-                        image=mask_rgb.copy(), prompts=self.prompts
+                        image=mask.copy(), prompts=self.prompts
                     )
 
                     # Convert OpenCV image (mask) to ROS Image message
@@ -469,6 +553,10 @@ class SAM2RosNode:
                         "green",
                     )
                 )
+
+        # Clean up RealSense pipeline if using API directly
+        if self.use_realsense_api and self.pipeline is not None:
+            self.pipeline.stop()
 
 
 if __name__ == "__main__":
